@@ -7,29 +7,28 @@
 
 const double rho_cr=2.77526627;		//	[10¹¹ h² Ms / Mpc³]
 const int   nc=np;
-const int   NumPart=np*np*np;		//	numero total de particulas
-const int   NumCel=nc*nc*nc;		//	numero total de particulas
-const double Mp=pow(Lbox/np,3.)*Om*rho_cr;	//	masa de 1 particula [10¹¹ Ms/h]
-const double Mmin=40*Mp;			//	masa minima de halo [10¹¹ Ms/h] 40 part/halo_min
-const double pi=4.*atan(1.);		//	numero pi
+const int   NumPart=np*np*np;		//	number of particles
+const int   NumCel=nc*nc*nc;		//	number of cell for the kdtree
+const double Mp=pow(Lbox/np,3.)*Om*rho_cr;	//	particles mass [10¹¹ Ms/h]
+const double Mmin=40*Mp;			//	minimum halo mass [10¹¹ Ms/h] 40 part/halo_min
+const double pi=4.*atan(1.);		//	numner pi
 const int   NumDelta=9;
 const double delta[NumDelta]={200.*Om*rho_cr,300.*Om*rho_cr,400.*Om*rho_cr,600.*Om*rho_cr,800.*Om*rho_cr,1200.*Om*rho_cr,1800.*Om*rho_cr,2400.*Om*rho_cr,3200.*Om*rho_cr};
 
-//const double limite=pow(1.*np/Lbox,3.)*Mmin/(Om*rho_cr);//	densidad limite para ser centro de halo
-const int  bin=10000;			//	numero de bines radiales log
+const int  bin=10000;			//	number of radial log bins for searching the critical value
 
-int *Ocu;			//	numero de ocupacion de cada celda
-int *Rho;			//	densidad de las particulas
-int *Masa;			//	masa de las particulas (=0 si \in halo)
-int *lista;			//	lista de Id de las particulas dentro de Rmax
-int **Id;			//	indice de las particulas en cada celda
-double *X,*Y,*Z;			//	coordenadas de todas las particulas
-
+int *Ocu;			//	number of particles in each cell
+int *Rho;			//	density estimator for the particles neighbourhood
+int *Masa;			//	particles mass (=0 if \in some halo)
+int *lista;			//	list with all particles inside Rmax
+int **Id;			//	index of the particles in a given cell
+double *X,*Y,*Z;		//	dark matter coordinates
 
 
 
 
-int calc_den=1;			//	1: si calcula	0: lee del archivo previo
+
+int calc_den=1;			//	1: conputes particles density	0: read file written previously
 
 
 
@@ -134,7 +133,7 @@ int main(int argc, char **argv)
   fflush(stdout);
   FILE * LEE;
   LEE = fopen(catalogo_materia,"r");	//halo.txt
-  // crea el vector de posiciones y cuenta las particulas que hay en cada celda
+  // reading particles file
   for (p=0;p<NumPart;p++)
     {
     fscanf(LEE,"%lf %lf %lf\n",&x,&y,&z);
@@ -170,7 +169,7 @@ int main(int argc, char **argv)
 
 
 
-  // Calcula densidades
+  // estimating density for the particles neigbourhood
   double r,r2;					//	radio para buscar vecinos
   r=pow(3*Mmin/(4*pi*delta[0]),1./3)*nc/Lbox;	//	en unidades de nc
   r2=r*r;
@@ -286,7 +285,7 @@ else{
   int PartHalo;				//	numero de particulas dentro de Rmax
   int aux_int;
 
-  // volumen y radio de cada bin
+  // volume and radiuos for each shell
 //  #pragma omp parallel for
   for(i=0;i<bin;i++){
     vol[i]=Mp*3/(4*pi*pow(r*Lbox/nc,3.)*pow(c,3.*i));	//	en [h/Mpc]^3
@@ -307,7 +306,7 @@ else{
 
   while(centro>=0){
 
-    // Busco la particula mas densa
+    // search for the particle in the most dense neighbourhood
     int rho_max=ceil(Mmin/Mp);
     centro=-1;
     #pragma omp parallel
@@ -327,7 +326,7 @@ else{
     }
     }
 
-    // Densidad física de la partícula con más vecinos
+    // density of the most dense neighbourhood
     rho[0]=vol[0]*Rho[centro];
 
     if(rho[0]<delta[0]){
@@ -402,15 +401,12 @@ else{
       // número de partículas en el rádio de búsqueda
       PartHalo--;
 
-      // cuenta las particulas en cada bin
-      // y decide cual es el radio (el indice del bin) que tienen densidad adecuada
-
       //  densidad del bin radial más pequeño
       rho[0]=vol[0]*cont[0];
 
       if(rho[0]>delta[0]){
 
-        //	a partir de los conteos en las capas calculo la densidad media
+        //	computes the density of the shells
         for(l=1;l<bin;l++){
           cont[l]+=cont[l-1];
           rho[l]=vol[l]*cont[l];}
@@ -420,7 +416,7 @@ else{
           fflush(stdout);
           exit(0);}
 
-        //imprimo centro
+        //print the halo coordinates
         fprintf(ESC,"%le %le %le ",X[centro]*Lbox/nc,Y[centro]*Lbox/nc,Z[centro]*Lbox/nc);
         int lmin,Lmax,l0;
         //imprimo radios y masas segun la lista de Delta
@@ -434,8 +430,7 @@ else{
         fprintf(ESC,"\n");fflush(ESC);
 
 
-        // ahora que tengo el radio del halo debo anular la masa de sus particulas
-        // para que no contribuyan a los demas halos
+        // set to 0 the density of all particles inside last detected halo
         for(i=0;i<PartHalo;i++){
           if(Masa[lista[i]]<=l0){	//Masa[lista[l]] is the radial bin where the particle [i] is, whilw lmin[0] is the radial bin defining the halo200
             Rho[lista[i]]=-1;
@@ -450,9 +445,6 @@ else{
   fclose(WRI);
 
 
-
-// solo falta imprimir la lista de halos, etc, como lo habia hecho en FINDER
-// para poder usar esta salida dentro de los demas codigos
 
   return 0;
 }
