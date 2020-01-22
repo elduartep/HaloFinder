@@ -22,5 +22,5 @@ x, y, z
 
 mass, mass_error, rad, rad_error (4 columns) for Delta_200,300,400,600,800,1200,1800,2400,3200 (9 Delta casses) [Delta related to the matter density]
 
-where positions anr radous are in Mpc/h, and masses are in 10^10 M\sun units
+where positions anr radous are in Mpc/h, and masses are in 10^11 M\sun units
  
